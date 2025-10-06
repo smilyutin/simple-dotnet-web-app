@@ -4,7 +4,8 @@ pipeline {
         stage('Build') { 
             steps {
                 sh 'dotnet restore' 
-                sh 'dotnet build --no-restore' 
+                sh 'dotnet build --configuration Debug --no-restore'
+                sh 'dotnet build --configuration Release --no-restore'
             }
         }
         stage('Test') {
@@ -17,14 +18,16 @@ pipeline {
                 }
             }
         }
-        stage('Deliver') {
-            steps {
-                sh 'dotnet publish SimpleWebApi --no-restore -o published'
-            }
-            post {
-                success {
-                    archiveArtifacts 'published/*.*'
-                }
+        stage('Test') {
+  steps {
+    dir('SimpleWebApi.Test') {
+      sh 'dotnet test --configuration Release --no-build --logger "junit;LogFilePath=test-results.xml"'
+    }
+  }
+  post {
+    always {
+      junit testResults: 'SimpleWebApi.Test/test-results.xml', allowEmptyResults: false
+    }
             }
         }
     }
