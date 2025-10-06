@@ -70,43 +70,41 @@ pipeline {
     }
 
     stage('Test + Coverage (Release)') {
-  steps {
-    dir('SimpleWebApi.Test') {
-      sh '''
-        set -e
+    steps {
+        dir('SimpleWebApi.Test') {
+        sh '''
+            set -e
 
-        # 1) Build test project (Release) so the DLL exists
-        dotnet build -c Release
+            # Build once so the DLL is present
+            dotnet build -c Release
 
-        # 2) Run tests once, force results into a known folder
-        #    - TRX: TestResults/results.trx
-        #    - Coverage: TestResults/**/coverage.cobertura.xml
-        dotnet test -c Release --no-build \
-          --results-directory "TestResults" \
-          --logger "trx;LogFileName=results.trx" \
-          --collect:"XPlat Code Coverage"
+            # Run tests with a deterministic results folder + TRX file
+            dotnet test -c Release --no-build \
+            --results-directory "TestResults" \
+            --logger "trx;LogFileName=results.trx" \
+            --collect:"XPlat Code Coverage"
 
-        # 3) Convert TRX -> JUnit into the SAME folder, using a local tool path
-        dotnet tool install trx2junit --tool-path ./.tools || true
-        ./.tools/trx2junit TestResults/results.trx -o TestResults
+            # Install converter locally and convert TRX -> a single JUnit file
+            dotnet tool install trx2junit --tool-path ./.tools || true
+            ./.tools/trx2junit TestResults/results.trx -o TestResults/results.junit.xml
 
-        echo "==== Debug listing ===="
-        pwd
-        find . -maxdepth 3 -type f -print
-      '''
+            echo "==== Debug listing ===="
+            pwd
+            find TestResults -type f -maxdepth 3 -print
+        '''
+        }
     }
-  }
-  post {
-    always {
-      // Publish JUnit created above (ends with .junit.xml)
-      junit allowEmptyResults: false, testResults: 'SimpleWebApi.Test/TestResults/*.junit.xml'
+    post {
+        always {
+        // Publish the one JUnit file we just created
+        junit allowEmptyResults: false, testResults: 'SimpleWebApi.Test/TestResults/results.junit.xml'
 
-      // Publish Cobertura coverage from XPlat Code Coverage
-      recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'SimpleWebApi.Test/TestResults/**/coverage.cobertura.xml']])
+        // Publish Cobertura coverage produced by XPlat collector
+        recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'SimpleWebApi.Test/TestResults/**/coverage.cobertura.xml']])
 
-      // Keep raw artifacts just in case
-      archiveArtifacts artifacts: 'SimpleWebApi.Test/TestResults/**', onlyIfSuccessful: false
-    }
+        // Keep all raw artifacts for inspection
+        archiveArtifacts artifacts: 'SimpleWebApi.Test/TestResults/**', onlyIfSuccessful: false
+            }   
       }
     }
   }
