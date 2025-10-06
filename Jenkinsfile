@@ -84,9 +84,9 @@ pipeline {
             --logger "trx;LogFileName=results.trx" \
             --collect:"XPlat Code Coverage"
 
-            # Install converter locally and convert TRX -> a single JUnit file
+            # Install converter locally and convert TRX -> JUnit (output to directory)
             dotnet tool install trx2junit --tool-path ./.tools || true
-            ./.tools/trx2junit TestResults/results.trx -o TestResults/results.junit.xml
+            ./.tools/trx2junit TestResults/results.trx --output TestResults
 
             echo "==== Debug listing ===="
             pwd
@@ -96,8 +96,8 @@ pipeline {
     }
     post {
         always {
-        // Publish the one JUnit file we just created
-        junit allowEmptyResults: false, testResults: 'SimpleWebApi.Test/TestResults/results.junit.xml'
+        // Publish the JUnit file created by trx2junit (results.xml in TestResults)
+        junit allowEmptyResults: false, testResults: 'SimpleWebApi.Test/TestResults/results.xml'
 
         // Publish Cobertura coverage produced by XPlat collector
         recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'SimpleWebApi.Test/TestResults/**/coverage.cobertura.xml']])
