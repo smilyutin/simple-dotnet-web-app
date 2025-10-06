@@ -19,6 +19,24 @@ pipeline {
       }
     }
 
+    stage('Setup .NET SDK 8.0.414') {
+        steps {
+            sh '''
+                set -e
+                curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+                chmod +x dotnet-install.sh
+                ./dotnet-install.sh --version 8.0.414 --install-dir "$PWD/.dotnet"
+                echo "## Installed SDKs:"
+                "$PWD/.dotnet/dotnet" --list-sdks
+                '''
+    // make this dotnet first in PATH for subsequent stages
+        script {
+            env.PATH = "${env.WORKSPACE}/.dotnet:${env.PATH}"
+            env.DOTNET_ROOT = "${env.WORKSPACE}/.dotnet"
+            }
+        }
+    }
+
     stage('Restore & Build (Release)') {
       steps {
         sh 'dotnet --info'
