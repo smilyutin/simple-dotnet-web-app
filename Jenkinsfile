@@ -19,16 +19,43 @@ pipeline {
 
     stage('Setup .NET SDK 8.0.414') {
       steps {
-        sh '''
-          set -e
-          curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
-          chmod +x dotnet-install.sh
-          ./dotnet-install.sh --version 8.0.414 --install-dir "$PWD/.dotnet"
-          "$PWD/.dotnet/dotnet" --list-sdks
-        '''
-        script {
-          env.PATH = "${env.WORKSPACE}/.dotnet:${env.PATH}"
-          env.DOTNET_ROOT = "${env.WORKSPACE}/.dotnet"
+    sh '''
+      set -e
+
+      # Ensure we have either curl or wget
+      if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+        if command -v apk >/dev/null 2>&1; then
+          # Alpine
+          apk add --no-cache curl
+        elif command -v apt-get >/dev/null 2>&1; then
+          # Debian/Ubuntu
+          apt-get update && apt-get install -y curl
+        elif command -v yum >/dev/null 2>&1; then
+          # RHEL/CentOS
+          yum install -y curl
+        else
+          echo "No package manager (apk/apt/yum) found to install curl." >&2
+          exit 1
+        fi
+      fi
+
+      # Download dotnet-install.sh with curl or wget
+      if command -v curl >/dev/null 2>&1; then
+        curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+      else
+        wget -qO dotnet-install.sh https://dot.net/v1/dotnet-install.sh
+      fi
+      chmod +x dotnet-install.sh
+
+      # Install requested SDK to workspace-local folder
+      ./dotnet-install.sh --version 8.0.414 --install-dir "$PWD/.dotnet"
+
+      echo "## SDKs:"
+      "$PWD/.dotnet/dotnet" --list-sdks
+    '''
+    script {
+      env.PATH = "${env.WORKSPACE}/.dotnet:${env.PATH}"
+      env.DOTNET_ROOT = "${env.WORKSPACE}/.dotnet"
         }
       }
     }
